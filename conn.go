@@ -26,49 +26,16 @@ type server struct {
 }
 
 type session_stream struct {
-	host   *stream
-	remote *stream
+	host   Stream
+	remote Stream
 }
 
 type stream struct {
-	outgoing  Stream
-	incomming Stream
+	outgoing  io.Writer
+	incomming io.Reader
 }
 
 type Stream interface {
 	io.ReadWriteCloser
 	Open(ctx context.Context, transport *http.Transport) error
-}
-
-func NewServer() *server {
-	return &server{
-		addr:        addr,
-		activeConns: make(map[string]*session_stream),
-	}
-}
-
-func (s *server) Accept() (net.Conn, error) {
-	if s.Conn != nil {
-		return s.Conn, nil
-	}
-	l, err := net.Listen("tcp", s.addr)
-	if err != nil {
-		return nil, err
-	}
-	return l.Accept()
-
-}
-
-func (s *server) Close() error {
-	if s.Conn == nil {
-		return ErrNilConnError
-	}
-	return s.Conn.Close()
-}
-
-func (s *server) Addr() net.Addr {
-	if s.Conn != nil {
-		return s.Conn.LocalAddr()
-	}
-	return nil
 }
