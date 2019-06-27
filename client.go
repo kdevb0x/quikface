@@ -6,44 +6,36 @@ package vidchat
 
 import (
 	"errors"
-	"os"
-	"syscall"
+	"io"
+	"net"
 )
 
-const BlockSize = 1024 * 1024 // Blocksize 1M
+var (
+	ErrNilConnError = errors.New("error cannot close nil connection")
+)
 
-var ErrUninitializedDevice = errors.New("error unable to use uninitialized device")
-
-type cameraDevice struct {
-	name      string // possibly "/dev/video0"
-	file      *os.File
-	framerate int // in frames-per-second (fps)
-	buffer    []frame
+// Client is a single participant dialing into chat other client.
+type Client struct {
+	Number string `json:"contact_number"` // telephone number
+	Addr   net.Addr
+	video  VideoStreamer
 }
 
-type frame [Blocksize]byte
-
-func (c *cameraDevice) mjpegStream() (<-chan []frame, error) {
-	if c.file == nil {
-		return nil, ErrUninitializedDevice
-	}
-	var buflen = len(c.buffer) * c.framerate
-	stream := make([]frame, buflen)
+func (c *Client) Dial(address string) (net.Conn, error) {
 
 }
 
-func OpenCamera(device string) (*cameraDevice, error) {
-	if device == "" {
-		device = "/dev/video0"
-	}
-	cam, err := os.OpenFile(device, syscall.O_RDWR|syscall.O_DIRECT|syscall.O_NONBLOCK, 0755)
-	if err != nil {
-		return nil, err
-	}
-	return &cameraDevice{
-		name:   device,
-		file:   cam,
-		buffer: make([]frame, 5),
-	}, nil
+type clientStream struct {
+	local  Stream // own stream
+	remote Stream // other callers stream
+}
 
+type stream struct {
+	outgoing  io.Writer
+	incomming io.Reader
+}
+
+type Stream interface {
+	io.ReadWriteCloser
+	// Open(ctx context.Context, transport *http.Transport) error
 }

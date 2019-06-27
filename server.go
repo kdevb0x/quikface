@@ -9,6 +9,19 @@ import (
 	"net"
 )
 
+// localhost for dev. FIXME
+var addr = "127.0.0.1:8000"
+
+type server struct {
+	net.Conn
+	addr        string                     // host address
+	activeConns map[string]*session_stream // key == remote address
+}
+
+type clientConn struct {
+	remoteAddr string
+}
+
 func NewServer() *server {
 	return &server{
 		addr:        addr,
@@ -48,4 +61,9 @@ func (t *stream) Read(p []byte) (n int, err error) {
 
 func (t *stream) Write(p []byte) (n int, err error) {
 	return t.outgoing.Write(p)
+}
+
+func (t *stream) Close() error {
+	return nil
+
 }
