@@ -9,3 +9,7 @@ import (
 )
 
 var _ webrtc.Configuration
+
+var wrtcCertificate =
+
+func generateWebRTCCertificate()

@@ -6,6 +6,7 @@ package vidchat
 
 import (
 	"html/template"
+	"net/http"
 	"os"
 	"html"
 )
@@ -20,4 +21,15 @@ func loadTemplateFile(file string) (template.Template, error) {
 		return nil, err
 	}
 	template.ParseFiles(f)
+}
+
+type ClientInfoForm struct {
+	DisplayName string
+
+}
+
+func renderTmpl(w http.ResponseWriter, tmpl template.Template, data interface{}) {
+	if err := tmpl.Execute(w, data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }

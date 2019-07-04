@@ -5,31 +5,31 @@
 package vidchat
 
 import (
-	"io"
 	"net"
 )
 
 // localhost for dev. FIXME
 var addr = "127.0.0.1:8000"
 
-type server struct {
-	net.Conn
-	addr        string                     // host address
-	activeConns map[string]*session_stream // key == remote address
+type Server struct {
+	HTTPServer                         // net.Conn
+	Addr        string                 // host address
+	ActiveConns map[string]*clientConn // key == remote address
 }
 
 type clientConn struct {
-	remoteAddr string
+	net.Conn
+	videoStream Stream // like *stream
 }
 
-func NewServer() *server {
-	return &server{
+func NewServer() *Server {
+	return &Server{
 		addr:        addr,
-		activeConns: make(map[string]*session_stream),
+		activeConns: make(map[string]*clientConn),
 	}
 }
 
-func (s *server) Accept() (net.Conn, error) {
+func (s *Server) Accept() (net.Conn, error) {
 	if s.Conn != nil {
 		return s.Conn, nil
 	}
@@ -41,29 +41,16 @@ func (s *server) Accept() (net.Conn, error) {
 
 }
 
-func (s *server) Close() error {
+func (s *Server) Close() error {
 	if s.Conn == nil {
 		return ErrNilConnError
 	}
 	return s.Conn.Close()
 }
 
-func (s *server) Addr() net.Addr {
+func (s *Server) Addr() net.Addr {
 	if s.Conn != nil {
 		return s.Conn.LocalAddr()
 	}
 	return nil
-}
-
-func (t *stream) Read(p []byte) (n int, err error) {
-	return io.ReadFull(t.incomming, p)
-}
-
-func (t *stream) Write(p []byte) (n int, err error) {
-	return t.outgoing.Write(p)
-}
-
-func (t *stream) Close() error {
-	return nil
-
 }

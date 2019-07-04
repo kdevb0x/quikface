@@ -25,17 +25,36 @@ func (c *Client) Dial(address string) (net.Conn, error) {
 
 }
 
-type clientStream struct {
-	local  Stream // own stream
-	remote Stream // other callers stream
-}
-
-type stream struct {
-	outgoing  io.Writer
-	incomming io.Reader
-}
-
 type Stream interface {
 	io.ReadWriteCloser
 	// Open(ctx context.Context, transport *http.Transport) error
+}
+
+type stream struct {
+	outbound io.WriteCloser // to server
+	inbound  io.ReadCloser  // from server
+}
+
+// Read reads up to len(p) bytes from the stream into p, returning the length
+// of written data (n <= len(p)), and any errors encountered.
+// Implements io.Reader interface.
+func (r *stream) Read(p []byte) (n int, err error) {
+	return r.inbound.Read(p)
+}
+
+// Write writes p to the stream, returning the length written, and any errors encountered.
+// Implements io.Writer interface.
+func (r *stream) Write(p []byte) (n int, err error) {
+	return r.outbound.Write(p)
+}
+
+// Close closes the streams and returns any errors encountered.
+func (r *stream) Close() error {
+	if err := r.inbound.Close(); err != nil {
+		return err
+	}
+	if err := r.outbound.Close(); err != nil {
+		return err
+	}
+	return nil
 }

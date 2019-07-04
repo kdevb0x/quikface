@@ -12,7 +12,10 @@ import (
 
 const BlockSize = 1024 * 1024 // Blocksize 1M
 
-var ErrUninitializedDevice = errors.New("error unable to use uninitialized device")
+var (
+	ErrUninitializedDevice = errors.New("error unable to use uninitialized device")
+	ErrUnknownDevice       = errors.New("error incorrect or unknown device")
+)
 
 type VideoStreamer interface {
 	StartStream() error
@@ -28,6 +31,10 @@ type cameraDevice struct {
 }
 
 type frame [BlockSize]byte
+
+/*
+NOTE: Using channels for the stream is a bad idea because the runtime schedules
+them to run at its convenience so we can't count on a constant stream.
 
 type MJPEG chan []frame
 
@@ -48,6 +55,7 @@ func (c *cameraDevice) intitMJPEG() (MJPEG, error) {
 	}()
 
 }
+*/
 
 func OpenCamera(device string) (*cameraDevice, error) {
 	if device == "" {
@@ -71,9 +79,27 @@ type socketDevice struct {
 }
 
 func OpenSocketDevice(device string) (*socketDevice, error) {
-	fd, err := os.OpenFile(device, 0755, syscall.O_DIRECT|syscall.O_NONBLOCK)
+	fd, err := os.OpenFile(device, 0755, os.ModeDevice|syscall.O_DIRECT|syscall.O_NONBLOCK)
 	if err != nil {
 		return nil, err
 	}
 
+}
+
+func creatDeviceSocket(device VideoStreamer) (*socketDevice, error) {
+	s, err := os.Create(os.TempDir())
+	if err != nil {
+		return nil, err
+	}
+
+	switch t := device.(type) {
+	case *cameraDevice:
+		d := &socketDevice{
+			name:   t.name,
+			fd:     t.file,
+			socket: s,
+		}
+	default:
+		return nil, ErrUnknownDevice
+	}
 }
