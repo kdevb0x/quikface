@@ -2,4 +2,6 @@ Vidchat is a simple program to make cross platform video chat possible.
 
 This need was realized after attempting to initiate a video chat session between an iphone and an android device. Android doesnt support facetime, as well as the istore doesn't offer google's Duo, or other similar free, and new-user friendly vchat applications.
 
+See OVERVIEW for archetecture overview and development info.
+
 This is a prototype work-in-progress. See LICENSE for licensing info.

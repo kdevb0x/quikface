@@ -1,0 +1,23 @@
+QuikFace is a functionality clone of facetime. Which means it is ment to do the
+same thing as facetime, however it does it in a different way, and cross platform.
+(At least, thats the goal ;P )
+
+The high level overview looks like this:
+(MAY CHANGE AT ANY POINT)
+
+A client (INITCLIENT) binds a listener to a random open port, then dials out to the HTTP server
+with it's ip, the port it is listening on, and a telephone number of who they wish
+to contact, who we'll call CONTACTCLIENT. (This may change in the future)
+
+The HTTP server dials back to the clients ip and listening port, and maintains a
+heartbeat connection until the requested number is contacted somehow (YTBD)
+at which point the CONTACTCLIENT does like INITCLIENT and binds a listener to
+a random open port and reaches out to the HTTP server with its ip, and listening
+port. The HTTP server then initiates the connection between INITCLIENT and
+CONTACTCLIENT and ties thier respective video and audio streams together.
+
+At this point I am not sure if the HTTP server will maintain any state
+about the connected session (like total time, if a side drops, etc)
+but it might in order to make sure the connection is cleaned up,
+or reconnect an interupted session etc.
+
