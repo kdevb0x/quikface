@@ -2,10 +2,11 @@
 // Use of this source code is governed by the BSD 3-Clause license
 // The full license text can be found in the LICENSE file.
 
-package vidchat
+package quikface
 
 import (
 	"errors"
+	"io"
 	"os"
 	"syscall"
 )
@@ -18,7 +19,25 @@ var (
 )
 
 type VideoStreamer interface {
-	StartStream() error
+	// StartStream starts a video stream, and returns its a func that stops
+	// the stream when called, and an error. If a non-nil error is returned,
+	// the returned function will be nil, so DONT CALL IT!!! IT WILL PANIC!
+	//
+	// Implementations are encouraged to return their own StopStream func,
+	// so that the caller can use the returned func to cancell the stream.
+	//
+	// Example:
+	//
+	// 	var s Videostreamer
+	// 	stopStream, err := s.StartStream()
+	// 	/* check err */
+	//
+	// 	// *** Do stuff here then ***`
+	//
+	// 	if err := stopStream(); err != nil {
+	//		log.Println(err.Error())
+	// 	}
+	StartStream(io.WriteCloser) (func() error, error)
 	StopStream() error
 	Close() error
 }
@@ -65,11 +84,12 @@ func OpenCamera(device string) (*cameraDevice, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &cameraDevice{
+	d := &cameraDevice{
 		name:   device,
 		file:   cam,
 		buffer: make([]frame, 5),
-	}, nil
+	}
+	return d, nil
 
 }
 
@@ -83,23 +103,9 @@ func OpenSocketDevice(device string) (*socketDevice, error) {
 	if err != nil {
 		return nil, err
 	}
-
-}
-
-func creatDeviceSocket(device VideoStreamer) (*socketDevice, error) {
-	s, err := os.Create(os.TempDir())
-	if err != nil {
-		return nil, err
+	d := &socketDevice{
+		name:   device,
+		handle: fd,
 	}
-
-	switch t := device.(type) {
-	case *cameraDevice:
-		d := &socketDevice{
-			name:   t.name,
-			fd:     t.file,
-			socket: s,
-		}
-	default:
-		return nil, ErrUnknownDevice
-	}
+	return d, nil
 }

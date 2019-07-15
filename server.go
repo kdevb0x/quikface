@@ -2,38 +2,75 @@
 // Use of this source code is governed by the BSD 3-Clause license
 // The full license text can be found in the LICENSE file.
 
-package vidchat
+package quikface
 
 import (
+	"errors"
+	"io"
 	"net"
+	"net/http"
+)
+
+var (
+	ErrNilConnError = errors.New("error cannot close nil connection")
 )
 
 // localhost for dev. FIXME
 var addr = "127.0.0.1:8000"
 
 type Server struct {
-	HTTPServer                         // net.Conn
+	http.Server                        // net.Conn
 	Addr        string                 // host address
-	ActiveConns map[string]*clientConn // key == remote address
+	ActiveConns map[string]*ClientConn // key == remote address
 }
 
-type clientConn struct {
+type ClientConn struct {
 	net.Conn
-	videoStream Stream // like *stream
+	VideoStream VideoStreamer
+	Addr        net.Addr
+	outbound    io.WriteCloser // to server
+	inbound     io.ReadCloser  // from server
+}
+
+func (c *ClientConn) Dial(address string) (net.Conn, error) {
+	return net.Dial("tcp", address)
+}
+
+// Read reads up to len(p) bytes from the ClientConn into p, returning the length
+// of written data (n <= len(p)), and any errors encountered.
+// Implements io.Reader interface.
+func (r *ClientConn) Read(p []byte) (n int, err error) {
+	return r.inbound.Read(p)
+}
+
+// Write writes p to the ClientConn, returning the length written, and any errors encountered.
+// Implements io.Writer interface.
+func (r *ClientConn) Write(p []byte) (n int, err error) {
+	return r.outbound.Write(p)
+}
+
+// Close closes the ClientConns and returns any errors encountered.
+func (r *ClientConn) Close() error {
+	if err := r.inbound.Close(); err != nil {
+		return err
+	}
+	if err := r.outbound.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func NewServer() *Server {
 	return &Server{
-		addr:        addr,
-		activeConns: make(map[string]*clientConn),
+		Addr:        addr,
+		ActiveConns: make(map[string]*ClientConn),
 	}
 }
-
 func (s *Server) Accept() (net.Conn, error) {
 	if s.Conn != nil {
 		return s.Conn, nil
 	}
-	l, err := net.Listen("tcp", s.addr)
+	l, err := net.Listen("tcp", s.Addr)
 	if err != nil {
 		return nil, err
 	}

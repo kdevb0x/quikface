@@ -2,14 +2,12 @@
 // Use of this source code is governed by the BSD 3-Clause license
 // The full license text can be found in the LICENSE file.
 
-package vidchat
+package quikface
 
-import (
-	"github.com/pion/webrtc/v2"
-)
+import "github.com/pion/webrtc/v2"
 
 var _ webrtc.Configuration
 
-var wrtcCertificate =
+var wrtcCertificate = generateWebRTCCertificate()
 
-func generateWebRTCCertificate()
+// func generateWebRTCCertificate() wrtc.

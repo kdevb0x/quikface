@@ -2,18 +2,18 @@
 // Use of this source code is governed by the BSD 3-Clause license
 // The full license text can be found in the LICENSE file.
 
-package vidchat
+package quikface
 
 import (
+	"html"
 	"html/template"
 	"net/http"
 	"os"
-	"html"
 )
 
-var _ html.EscapeString("")
+var _ = html.EscapeString("")
 
-var _ template.New("quikvidchat")
+var _ = template.New("quikvidchat")
 
 func loadTemplateFile(file string) (template.Template, error) {
 	f, err := os.Open(file)
@@ -25,7 +25,6 @@ func loadTemplateFile(file string) (template.Template, error) {
 
 type ClientInfoForm struct {
 	DisplayName string
-
 }
 
 func renderTmpl(w http.ResponseWriter, tmpl template.Template, data interface{}) {
