@@ -67,15 +67,18 @@ func NewServer() *Server {
 	}
 }
 func (s *Server) Accept() (net.Conn, error) {
-	if s.Conn != nil {
-		return s.Conn, nil
-	}
 	l, err := net.Listen("tcp", s.Addr)
 	if err != nil {
 		return nil, err
 	}
-	return l.Accept()
-
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			continue
+		}
+		raddr := conn.RemoteAddr().String()
+		s.ActiveConns[raddr] = &ClientConn{}
+	}
 }
 
 func (s *Server) Close() error {
