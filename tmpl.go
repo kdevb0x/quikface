@@ -8,19 +8,14 @@ import (
 	"html"
 	"html/template"
 	"net/http"
-	"os"
 )
 
 var _ = html.EscapeString("")
 
 var _ = template.New("quikvidchat")
 
-func loadTemplateFile(file string) (template.Template, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	template.ParseFiles(f)
+func loadTemplateFile(file string) (*template.Template, error) {
+	return template.ParseFiles(file)
 }
 
 type ClientInfoForm struct {
