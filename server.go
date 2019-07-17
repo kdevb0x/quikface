@@ -93,3 +93,7 @@ func (s *Server) Addr() net.Addr {
 	addr, _ := net.ResolveUDPAddr("udp", s.SAddr)
 	return addr
 }
+
+func (s *Server) ListenAndServeTLS() {
+	go s.ServeTLS(s, "localhost+2.pem", "cert/localhost+2-key.pem")
+}
