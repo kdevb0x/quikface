@@ -19,38 +19,41 @@ var (
 var addr = "127.0.0.1:8000"
 
 type Server struct {
-	http.Server                        // net.Conn
-	Addr        string                 // host address
-	ActiveConns map[string]*ClientConn // key == remote address
+	http.Server                     // net.Conn
+	SAddr       string              // host address
+	ActiveConns map[string]net.Conn // key == remote address
 }
 
-type ClientConn struct {
-	net.Conn
+type Client struct {
+	Conn        net.Conn
 	VideoStream VideoStreamer
 	Addr        net.Addr
-	outbound    io.WriteCloser // to server
-	inbound     io.ReadCloser  // from server
+
+	// FIXME: inbound and outbound together are basically just a net.Conn,
+	// so extact this into a type that implements the interface.
+	outbound io.WriteCloser // to server
+	inbound  io.ReadCloser  // from server
 }
 
-func (c *ClientConn) Dial(address string) (net.Conn, error) {
+func (c *Client) Dial(address string) (net.Conn, error) {
 	return net.Dial("tcp", address)
 }
 
-// Read reads up to len(p) bytes from the ClientConn into p, returning the length
+// Read reads up to len(p) bytes from the Client into p, returning the length
 // of written data (n <= len(p)), and any errors encountered.
 // Implements io.Reader interface.
-func (r *ClientConn) Read(p []byte) (n int, err error) {
+func (r *Client) Read(p []byte) (n int, err error) {
 	return r.inbound.Read(p)
 }
 
-// Write writes p to the ClientConn, returning the length written, and any errors encountered.
+// Write writes p to the Client, returning the length written, and any errors encountered.
 // Implements io.Writer interface.
-func (r *ClientConn) Write(p []byte) (n int, err error) {
+func (r *Client) Write(p []byte) (n int, err error) {
 	return r.outbound.Write(p)
 }
 
-// Close closes the ClientConns and returns any errors encountered.
-func (r *ClientConn) Close() error {
+// Close closes the Clients and returns any errors encountered.
+func (r *Client) Close() error {
 	if err := r.inbound.Close(); err != nil {
 		return err
 	}
@@ -62,12 +65,13 @@ func (r *ClientConn) Close() error {
 
 func NewServer() *Server {
 	return &Server{
-		Addr:        addr,
-		ActiveConns: make(map[string]*ClientConn),
+		SAddr:       addr,
+		ActiveConns: make(map[string]net.Conn),
 	}
 }
+
 func (s *Server) Accept() (net.Conn, error) {
-	l, err := net.Listen("tcp", s.Addr)
+	l, err := net.Listen("udp", s.SAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -77,20 +81,15 @@ func (s *Server) Accept() (net.Conn, error) {
 			continue
 		}
 		raddr := conn.RemoteAddr().String()
-		s.ActiveConns[raddr] = &ClientConn{}
+		s.ActiveConns[raddr] = conn
 	}
 }
 
 func (s *Server) Close() error {
-	if s.Conn == nil {
-		return ErrNilConnError
-	}
-	return s.Conn.Close()
+	return s.Server.Close()
 }
 
 func (s *Server) Addr() net.Addr {
-	if s.Conn != nil {
-		return s.Conn.LocalAddr()
-	}
-	return nil
+	addr, _ := net.ResolveUDPAddr("udp", s.SAddr)
+	return addr
 }
