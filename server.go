@@ -21,7 +21,7 @@ var (
 var addr = "127.0.0.1:8000"
 
 type Server struct {
-	// http.Server                     // net.Conn
+	httpserver  *http.Server        // net.Conn
 	SAddr       string              // host address
 	ActiveConns map[string]net.Conn // key == remote address
 }
@@ -91,7 +91,7 @@ func (s *Server) Accept() (net.Conn, error) {
 }
 
 func (s *Server) Close() error {
-	return s.Server.Close()
+	return s.httpserver.Close()
 }
 
 func (s *Server) Addr() net.Addr {
@@ -101,5 +101,7 @@ func (s *Server) Addr() net.Addr {
 
 func (s *Server) ListenAndServeTLS() error {
 	r := mux.NewRouter()
+	r.Methods("POST").Path("/createAccount").HandlerFunc(CreateAccountHandler)
+	s.httpserver.Handler = r
 	return http.ServeTLS(s, r, "localhost+2.pem", "cert/localhost+2-key.pem")
 }

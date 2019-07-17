@@ -27,3 +27,7 @@ func renderTmpl(w http.ResponseWriter, tmpl template.Template, data interface{})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
+
+func CreateAccountHandler(w http.ResponseWriter, r *http.Request) {
+	r.Cookies()
+}
