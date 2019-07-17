@@ -9,6 +9,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 var (
@@ -19,7 +21,7 @@ var (
 var addr = "127.0.0.1:8000"
 
 type Server struct {
-	http.Server                     // net.Conn
+	// http.Server                     // net.Conn
 	SAddr       string              // host address
 	ActiveConns map[string]net.Conn // key == remote address
 }
@@ -83,6 +85,9 @@ func (s *Server) Accept() (net.Conn, error) {
 		raddr := conn.RemoteAddr().String()
 		s.ActiveConns[raddr] = conn
 	}
+	// BUG: I'm not sure why this works without a return here.
+	// s is a listener, so s.Accept should overwrite the promoted method,
+
 }
 
 func (s *Server) Close() error {
@@ -94,6 +99,7 @@ func (s *Server) Addr() net.Addr {
 	return addr
 }
 
-func (s *Server) ListenAndServeTLS() {
-	go s.ServeTLS(s, "localhost+2.pem", "cert/localhost+2-key.pem")
+func (s *Server) ListenAndServeTLS() error {
+	r := mux.NewRouter()
+	return http.ServeTLS(s, r, "localhost+2.pem", "cert/localhost+2-key.pem")
 }

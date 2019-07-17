@@ -24,5 +24,9 @@ func TestListenAndServeTLS(t *testing.T) {
 	}
 	s := NewServer()
 	s.ListenAndServeTLS()
+
+	// FIXME:
+	// BUG: For some currently unknown reason this needs to be ran in its
+	// own goroutine or it will panic with nil pointer dereference error.
 	go getFunc(t)
 }
