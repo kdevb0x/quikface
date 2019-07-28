@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gobwas/ws"
 )
 
 var (
@@ -83,6 +84,11 @@ func (s *Server) Accept() (net.Conn, error) {
 			continue
 		}
 		raddr := conn.RemoteAddr().String()
+		hs. err := ws.Upgrade(conn)
+		if err != nil {
+			return nil, err
+		}
+
 		s.ActiveConns[raddr] = conn
 	}
 	// BUG: I'm not sure why this works without a return here.
