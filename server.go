@@ -6,6 +6,7 @@ package quikface
 
 import (
 	"errors"
+	"context"
 	"io"
 	"net"
 	"net/http"
@@ -23,7 +24,7 @@ var addr = "127.0.0.1:8000"
 
 type Server struct {
 	httpserver  *http.Server        // net.Conn
-	SAddr       string              // host address
+	Addr       string              // host address
 	ActiveConns map[string]net.Conn // key == remote address
 }
 
@@ -68,13 +69,13 @@ func (r *Client) Close() error {
 
 func NewServer() *Server {
 	return &Server{
-		SAddr:       addr,
+		Addr:       addr,
 		ActiveConns: make(map[string]net.Conn),
 	}
 }
 
 func (s *Server) Accept() (net.Conn, error) {
-	l, err := net.Listen("udp", s.SAddr)
+	l, err := net.Listen("udp", s.Addr)
 	if err != nil {
 		return nil, err
 	}
@@ -101,13 +102,27 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) Addr() net.Addr {
-	addr, _ := net.ResolveUDPAddr("udp", s.SAddr)
+	addr, _ := net.ResolveUDPAddr("udp", s.Addr)
 	return addr
 }
 
+// Tmp catch all paths connection initiator
+// TODO: extract out logic and make this pretty.
 func (s *Server) ListenAndServeTLS() error {
 	r := mux.NewRouter()
 	r.Methods("POST").Path("/createAccount").HandlerFunc(CreateAccountHandler)
 	s.httpserver.Handler = r
 	return http.ServeTLS(s, r, "localhost+2.pem", "cert/localhost+2-key.pem")
+}
+
+func (s *Server) ClientFromReq(req *http.Request) *Client {
+	ip := req.RemoteAddr
+	c := &Client{
+
+	}
+}
+// genClientSessionKey generates a cryptographic session key for use in calls,
+// and stores it in ctx.Value.
+func (s *Server) genClientSessionKey(ctx context.Context, c *Client) {
+
 }

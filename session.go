@@ -8,6 +8,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
@@ -19,6 +20,15 @@ var (
 	_ = ws.NewMask()
 	_ = new(wsutil.ControlHandler)
 )
+
+type SessionKey struct {
+	Key        []byte
+	Expiration time.Time
+}
+
+type SessionConfig struct {
+	Peers map[string]SessionKey // remote ip addresses of peers on call
+}
 
 type WSMuxer interface {
 	HandleWS(context.Context, net.Conn)
