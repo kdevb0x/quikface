@@ -5,14 +5,14 @@
 package quikface
 
 import (
-	"errors"
 	"context"
+	"errors"
 	"io"
 	"net"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/gobwas/ws"
+	"github.com/gorilla/mux"
 )
 
 var (
@@ -24,14 +24,13 @@ var addr = "127.0.0.1:8000"
 
 type Server struct {
 	httpserver  *http.Server        // net.Conn
-	Addr       string              // host address
-	ActiveConns map[string]net.Conn // key == remote address
+	Addr        string              // host address
+	ActiveConns map[net.IP]net.Conn // key == remote address
 }
 
 type Client struct {
-	Conn        net.Conn
 	VideoStream VideoStreamer
-	Addr        net.Addr
+	Addr        net.IP
 
 	// FIXME: inbound and outbound together are basically just a net.Conn,
 	// so extact this into a type that implements the interface.
@@ -69,7 +68,7 @@ func (r *Client) Close() error {
 
 func NewServer() *Server {
 	return &Server{
-		Addr:       addr,
+		Addr:        addr,
 		ActiveConns: make(map[string]net.Conn),
 	}
 }
@@ -85,7 +84,7 @@ func (s *Server) Accept() (net.Conn, error) {
 			continue
 		}
 		raddr := conn.RemoteAddr().String()
-		hs. err := ws.Upgrade(conn)
+		hs, err := ws.Upgrade(conn)
 		if err != nil {
 			return nil, err
 		}
@@ -118,9 +117,11 @@ func (s *Server) ListenAndServeTLS() error {
 func (s *Server) ClientFromReq(req *http.Request) *Client {
 	ip := req.RemoteAddr
 	c := &Client{
-
+		Addr: net.ParseIP(ip),
 	}
+	return c
 }
+
 // genClientSessionKey generates a cryptographic session key for use in calls,
 // and stores it in ctx.Value.
 func (s *Server) genClientSessionKey(ctx context.Context, c *Client) {
