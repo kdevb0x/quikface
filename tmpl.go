@@ -12,10 +12,10 @@ import (
 
 var _ = html.EscapeString("")
 
-var _ = template.New("quikvidchat")
+var _ = template.New("quikface")
 
-func loadTemplateFile(file string) (*template.Template, error) {
-	return template.ParseFiles(file)
+func loadTemplateFile(file ...string) (*template.Template, error) {
+	return template.ParseFiles(file...)
 }
 
 type ClientInfoForm struct {
@@ -26,8 +26,4 @@ func renderTmpl(w http.ResponseWriter, tmpl template.Template, data interface{})
 	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-}
-
-func CreateAccountHandler(w http.ResponseWriter, r *http.Request) {
-	r.Cookies()
 }

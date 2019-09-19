@@ -5,35 +5,60 @@
 package quikface
 
 import (
-	"context"
-	"net"
-	"net/http"
-	"time"
+	"fmt"
 
-	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
-	"github.com/gorilla/mux"
+	rtc "github.com/pion/webrtc/v2"
 )
 
-var (
-	_ = mux.NewRouter()
-	_ = ws.NewMask()
-	_ = new(wsutil.ControlHandler)
-)
+func NewDefaultPeerConnection() (*rtc.PeerConnection, error) {
+	config := rtc.Configuration{
+		ICEServers: []rtc.ICEServer{
+			{
+				URLs: []string{"stun:stun.1.google.com:19302"},
+			},
+		},
+	}
 
-type SessionKey struct {
-	Key        []byte
-	Expiration time.Time
+	peerConn, err := rtc.NewPeerConnection(config)
+	if err != nil {
+		return nil, err
+	}
+	return peerConn, nil
+
 }
 
-type SessionConfig struct {
-	Peers map[string]SessionKey // remote ip addresses of peers on call
+type dataChannel struct {
+	dc       *rtc.DataChannel
+	inbound  chan rtc.DataChannelMessage // TODO: refine this, drop interface{}
+	outbound chan rtc.DataChannelMessage
 }
 
-type WSMuxer interface {
-	HandleWS(context.Context, net.Conn)
+func NewDataChannel(label string, peerconn *rtc.PeerConnection) (*dataChannel, error) {
+	dc, err := peerconn.CreateDataChannel(label, nil)
+	if err != nil {
+		return nil, err
+	}
+	peerconn.OnDataChannel(func(dataChannel *rtc.DataChannel) {
+		fmt.Printf("New Data Channel %s %d \n", dataChannel.Label, dataChannel.ID())
+	})
+
+	dcs := &dataChannel{dc: dc}
+	dcs.dc.OnOpen(func() {
+		var ib = make(chan rtc.DataChannelMessage)
+		var ob = make(chan rtc.DataChannelMessage)
+		dcs.inbound = ib
+		dcs.outbound = ob
+
+	})
+	dcs.dc.OnMessage(func(msg rtc.DataChannelMessage) {
+		go func() {
+			dcs.inbound <- msg
+		}()
+	})
+
+	return dcs, nil
 }
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-
+func (dc *dataChannel) SendTxt(msg string) error {
+	return dc.dc.SendText(msg)
 }
