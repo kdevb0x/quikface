@@ -18,13 +18,13 @@ import (
 // maxRoomCap is the maximum number of clients allowed to a room.
 const maxRoomCap = 2
 
-// masterDirectory is the global room directory; lists all Rooms in existence.
-var masterDirectory RoomList = func() RoomList {
-	return RoomList{
+// NewRoomList creates the global room directory, which lists all Rooms in existence.
+func NewRoomList() *RoomList {
+	return &RoomList{
 		Rooms:      make(map[string]string),
 		roomhashes: make(map[string]*Room),
 	}
-}()
+}
 
 type RoomList struct {
 	// Rooms is the global list of existing rooms, mapping their
@@ -45,7 +45,7 @@ type Room struct {
 	id string
 
 	// Clients is a map of the Clients present, keyed by their id's.
-	Clients map[string]*Client
+	Clients map[uint32]*Client
 
 	// Client registration time limit; Clients must register before timeout.
 	RegistrationTimeout time.Duration
@@ -64,15 +64,15 @@ func (rl *RoomList) GetRoom(hash string) (*Room, error) {
 	return r, nil
 }
 
-// NewRoom creates a new room, adding it to globaldir. Returns non-nil err if it
+// NewRoom creates a new room, adding it to rl. Returns non-nil err if it
 // already exists.
 // If > 1 registrationTimeout is provided, all but the first one are ignored.
-func (globaldir *RoomList) NewRoom(name string, url string, registrationTimeout ...time.Duration) (*Room, error) {
-	if _, exists := globaldir.Rooms[name]; exists {
+func (rl *RoomList) NewRoom(name string, url string, registrationTimeout ...time.Duration) (*Room, error) {
+	if _, exists := rl.Rooms[name]; exists {
 		return nil, fmt.Errorf("error: room name [%s] already exists!", name)
 	}
 	r := &Room{
-		directory: globaldir,
+		directory: rl,
 		Name:      name,
 		RoomURL:   url,
 	}
@@ -80,14 +80,14 @@ func (globaldir *RoomList) NewRoom(name string, url string, registrationTimeout 
 		r.RegistrationTimeout = registrationTimeout[0]
 	}
 
-	rid, err := globaldir.HashRoom(r.Name)
+	rid, err := rl.HashRoom(r.Name)
 	if err != nil {
 		return nil, fmt.Errorf("can't create room named %s, [internal error]: %w\n", name, err)
 	}
-	r.Clients = make(map[uint64]*Client)
+	r.Clients = make(map[uint32]*Client)
 	r.id = rid
-	globaldir.Rooms[r.Name] = r.id
-	globaldir.roomhashes[r.id] = r
+	rl.Rooms[r.Name] = r.id
+	rl.roomhashes[r.id] = r
 	return r, nil
 }
 
@@ -108,7 +108,7 @@ func (rl *RoomList) HashRoom(name string) (string, error) {
 
 // Client returns the client if present, otherwise a new Client is created
 // inside the Room r, (if maxRoomCap iis not met) then returned.
-func (r *Room) Client(clientID string) (*Client, error) {
+func (r *Room) Client(clientID uint32) (*Client, error) {
 	if c, exists := r.Clients[clientID]; exists {
 		return c, nil
 	}
@@ -116,6 +116,6 @@ func (r *Room) Client(clientID string) (*Client, error) {
 		return nil, errors.New("Room at max capacity, cannot add client")
 
 	}
-	r.Clients[clientID] = NewClient(clientID)
+	r.Clients[clientID] = NewClient()
 	return r.Clients[clientID], nil
 }
