@@ -7,7 +7,6 @@ package quikface
 import (
 	"html/template"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -28,7 +27,8 @@ func NewSessionRouter() *SessionRouter {
 	}
 	r := mux.NewRouter()
 	r.HandleFunc("/", IndexHandler)
-
+	r.HandleFunc("/session/{create:(?:create)}", CreateRoomHandler).Methods("POST").Name("create")
+	r.HandleFunc("/session/{join:(?:join)}", JoinRoomHandler).Methods("POST").Quaries("roomname")
 	s.httprouter = r
 	return s
 }
@@ -45,8 +45,12 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateRoomHandler(w http.ResponseWriter, r *http.Request) {
+	var c *Client
 	clientAddr := r.RemoteAddr
-	c := NewClient(time.Now().UTC().String())
+	if displayname, err := r.Cookie("DisplayName"); err == nil {
+		c = NewClient(displayname.Value)
+	}
+	c = NewClient()
 	if c == nil {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
