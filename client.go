@@ -10,7 +10,11 @@ import (
 	"math/rand"
 	"time"
 
+	_ "github.com/gobwas/ws"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+	_ "github.com/pion/webrtc/pkg/media"
+	rtc "github.com/pion/webrtc/v2"
 )
 
 type Client struct {
@@ -330,4 +334,8 @@ func (c *Client) JoinRoom(name string, masterDirectory *RoomList) (*Room, error)
 
 	}
 	return nil, fmt.Errorf("error: room %s doesn't exist", name)
+}
+
+func (c *Client) initRTCSession(signal *websocket.Conn) rtc.API {
+
 }

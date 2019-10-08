@@ -1,0 +1,24 @@
+{{ define "base" }}
+
+<html>
+<head>
+<title> {{.Title}} </title>
+
+</head>
+<body>
+
+</body>
+</html>
+
+{{ end }}
+
+{{ define "cameraView" }}
+<p> {{.owner}}View </p>
+<canvas id="video_viewport" style="display:none"></canvas>
+<div class="bigImgWrap" id="video_container">
+	<video id="{{.owner}}_monitor" autoplay></video>
+	<img id="output">
+</div>
+{{ end }}
+
+
