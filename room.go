@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/sha3"
@@ -27,6 +28,7 @@ func NewRoomList() *RoomList {
 }
 
 type RoomList struct {
+	mu sync.Mutex
 	// Rooms is the global list of existing rooms, mapping their
 	// human-readable names to thier id hashes, which can be used by
 	// GetRoom() to get a pointer to the actual room.
