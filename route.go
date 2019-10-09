@@ -28,7 +28,7 @@ func NewSessionRouter() *SessionRouter {
 	r := mux.NewRouter()
 	r.HandleFunc("/", IndexHandler)
 	r.HandleFunc("/session/{create:(?:create)}", CreateRoomHandler).Methods("POST").Name("create")
-	r.HandleFunc("/session/{join:(?:join)}", JoinRoomHandler).Methods("POST").Quaries("roomname")
+	r.HandleFunc("/session/{join:(?:join)}", JoinRoomHandler).Methods("POST").Queries("roomname")
 	s.httprouter = r
 	return s
 }
@@ -44,16 +44,25 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func CreateRoomHandler(w http.ResponseWriter, r *http.Request) {
+func JoinRoomHandler(w http.ResponseWriter, r *http.Request) {
 	var c *Client
 	clientAddr := r.RemoteAddr
-	if displayname, err := r.Cookie("DisplayName"); err == nil {
-		c = NewClient(displayname.Value)
-	}
+
+	// this is really unsafe without sanitization, removing for now.
+	/*
+		if displayname, err := r.Cookie("DisplayName"); err == nil {
+			c = NewClient(displayname.Value)
+		}
+	*/
+
 	c = NewClient()
 	if c == nil {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	c.Addr = clientAddr
+}
+
+func CreateRoomHandler(w http.ResponseWriter, r *http.Request) {
+
 }
