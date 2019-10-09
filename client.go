@@ -336,6 +336,6 @@ func (c *Client) JoinRoom(name string, masterDirectory *RoomList) (*Room, error)
 	return nil, fmt.Errorf("error: room %s doesn't exist", name)
 }
 
-func (c *Client) initRTCSession(signal *websocket.Conn) rtc.API {
+func (c *Client) initWebRTCSession(signal *websocket.Conn) (*rtc.PeerConnection, error) {
 
 }
