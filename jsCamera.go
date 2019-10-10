@@ -4,7 +4,7 @@
 
 // +build wasm,js
 
-package internal // import "github.com/kdevb0x/quikface/internal"
+package quikface // import "github.com/kdevb0x/quikface"
 
 import (
 	"io"
