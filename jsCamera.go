@@ -15,6 +15,8 @@ import (
 	"github.com/dennwc/dom/net/webrtc"
 
 	rtc "github.com/pion/webrtc/v2"
+	"github.com/pion/rtp/codecs"
+	"github.com/pion/rtp"
 )
 
 var (
@@ -54,12 +56,18 @@ func InitBrowserCam() (MediaStream, error) {
 
 	getUserMediaPromise := mediaDevices.Call("getUserMedia", constraints)
 
-	js.AsyncCallbackOf(func(streams []js.Value) {
+	var localVidTrack *JSVideoTrack
+	var localAudioTrack *JSAudioTrack
+	streamfunc := js.AsyncCallbackOf(func(streams []js.Value) {
 		if len(streams) > 0 {
 			for _, stream := range streams {
+				for _, track := stream.Call("getTracks") {
+					if track.Get("kind").String() == "video" {
+						localVidTrack = &JSVideoTrack{track}
+					}
+				}
 				var vidTrack = stream.Call("getVideoTracks")
 			}
-			localVideo.SetAttribute("srcObject", stream)
 		}
 
 	}
@@ -74,9 +82,9 @@ func InitBrowserCam() (MediaStream, error) {
 			},
 		},
 	}
-	peerconn, err := rtc.NewPeerConnection(rtcConfig)
+	var api = rtc.NewAPI()
+	peerconn, err := api.NewPeerConnection(rtcConfig)
 	if err != nil {
 		return nil, err
 	}
-	peerconn.
 }
