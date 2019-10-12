@@ -61,6 +61,10 @@ func JoinRoomHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c.Addr = clientAddr
+	if roomid, exists := mux.Vars(r)["join"]; exists {
+
+		http.Error(w, "the requested room doesn't exist.", http.StatusNotFound)
+	}
 }
 
 func CreateRoomHandler(w http.ResponseWriter, r *http.Request) {

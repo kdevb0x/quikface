@@ -5,6 +5,8 @@
 // Some ideas for signaling in this package have been pulled from collider:
 // Copyright (c) 2014 The WebRTC project authors.
 // https://github.com/webrtc/apprtc/blob/master/src/collider
+// and
+// https://github.com/dennwc/dom/blob/master/net/webrtc/signalling.go
 
 package quikface
 
@@ -13,11 +15,35 @@ import (
 	"io"
 
 	_ "github.com/gobwas/ws"
-	_ "github.com/pion/webrtc/v2"
 	"golang.org/x/net/websocket"
 )
 
 type signalFunc func(ws *websocket.Conn, client *Client, msg Message) error
+
+type Signal struct {
+	UserId string // optional user id of client
+	Data   []byte // webrtc SDP payload
+}
+
+type Signaller interface {
+	Broadcast(s Signal) (AnswerStream, error)
+	Listen(uid string) (OfferStream, error)
+}
+
+type AnswerStream interface {
+	Next() (Signal, error)
+	Close() error
+}
+
+type Offer interface {
+	Info() Signal
+	Answer(s Signal) error
+}
+
+type OfferStream interface {
+	Next() (Offer, error)
+	Close() error
+}
 
 type Message interface {
 	Cmd() string // returns the signal command as string

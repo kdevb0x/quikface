@@ -8,10 +8,9 @@ package quikface // import "github.com/kdevb0x/quikface"
 
 import (
 	"io"
-	gojs "syscall/js"
+	"syscall/js"
 
 	"github.com/dennwc/dom"
-	"github.com/dennwc/dom/js"
 	"github.com/dennwc/dom/net/webrtc"
 
 	rtc "github.com/pion/webrtc/v2"
@@ -52,10 +51,11 @@ func InitBrowserCam() (MediaStream, error) {
 	var localVideo = dom.GetDocument().QuerySelector("localVideo")
 	goconstraints := map[string]interface{}{"audio": true, "video": map[string]interface{}{"facingMode": "user"}}
 	constraints := js.ValueOf(goconstraints)
-	mediaDevices := gojs.Global().Get("navigator").Get("mediaDevices")
+	mediaDevices := js.Global().Get("navigator").Get("mediaDevices")
 
 	getUserMediaPromise := mediaDevices.Call("getUserMedia", constraints)
 
+	/*
 	var localVidTrack *JSVideoTrack
 	var localAudioTrack *JSAudioTrack
 	streamfunc := js.AsyncCallbackOf(func(streams []js.Value) {
@@ -70,10 +70,10 @@ func InitBrowserCam() (MediaStream, error) {
 			}
 		}
 
-	}
-	// var mediaPromise = js.NewPromise(func()([]interface{}, error) {
-	// 	return mediaDevices.Call("getUserMedia", constraints), nil
-	// })
+	})
+	*/
+	getUserMediaPromise.Call("onSuccess", js.FuncOf(goRTCStreamCallback))
+	// getUserMediaPromise.Call("onError", js.FuncOf(/* TODO: implement */ goRTCStreamErrorCallback))
 
 	var rtcConfig = rtc.Configuration{
 		ICEServers: []rtc.ICEServer{
@@ -87,4 +87,10 @@ func InitBrowserCam() (MediaStream, error) {
 	if err != nil {
 		return nil, err
 	}
+}
+
+// initGoRTCSession signiture matches that needed for js.FuncOf callback.
+func goRTCStreamCallback(this js.Value, args []js.Value) interface{} {
+	var offer = rtc.SessionDescription{}
+
 }
