@@ -29,6 +29,8 @@ func NewSessionRouter() *SessionRouter {
 	r.HandleFunc("/", IndexHandler)
 	r.HandleFunc("/session/{create:(?:create)}", CreateRoomHandler).Methods("POST").Name("create")
 	r.HandleFunc("/session/{join:(?:join)}", JoinRoomHandler).Methods("POST").Queries("roomname")
+	r.Handle("/login", &templateHandler{filename: "login.html"})
+	r.HandleFunc("/auth/{action}/{provider}", LoginHandler)
 	s.httprouter = r
 	return s
 }
@@ -61,12 +63,23 @@ func JoinRoomHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c.Addr = clientAddr
-	if roomid, exists := mux.Vars(r)["join"]; exists {
+	if _, exists := mux.Vars(r)["join"]; exists {
 
 		http.Error(w, "the requested room doesn't exist.", http.StatusNotFound)
 	}
 }
 
 func CreateRoomHandler(w http.ResponseWriter, r *http.Request) {
+	var authchan = make(chan authdata)
+	// send client to oauth
+	authReqHandler(w, r, authchan)
+	authd := <-authchan
+}
 
+func MustAuth(handler http.Handler) http.Handler {
+	return &authHandler{next: handler}
+}
+
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	go authReqHandler(w, r)
 }
