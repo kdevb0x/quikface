@@ -106,6 +106,4 @@ func goRTCStreamCallback(this js.Value, args []js.Value) interface{} {
 		}
 		// track to send to local browser
 		btrack, err := peerconn.NewTrack()
-		peerconn.AddTransceiver(rtc.RTPCodecTypeVideo)
-		peerconn.OnTrack
 }
