@@ -74,6 +74,7 @@ func CreateRoomHandler(w http.ResponseWriter, r *http.Request) {
 	// send client to oauth
 	authReqHandler(w, r, authchan)
 	authd := <-authchan
+
 }
 
 func MustAuth(handler http.Handler) http.Handler {

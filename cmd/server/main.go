@@ -3,3 +3,14 @@
 // The full license text can be found in the LICENSE file.
 
 package main
+
+import (
+	"github.com/kdevb0x/quikface"
+)
+
+var sessionRouter *quikface.SessionRouter
+
+func main() {
+	sessionRouter = quikface.NewSessionRouter()
+
+}

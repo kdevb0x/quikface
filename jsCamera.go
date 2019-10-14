@@ -33,12 +33,14 @@ type MediaStream interface {
 
 // JSAudioTrack represents an audio track from the browsers MediaStream.
 type JSAudioTrack struct {
-	js.Value
+	jsval js.Value
+	Track *rtc.Track
 }
 
 // JSVideoTrack represents a video track from the browsers MediaStream.
 type JSVideoTrack struct {
-	js.Value
+	jsval js.Value
+	Track *rtc.Track
 }
 
 func (au *JSAudioTrack) Id() string {
@@ -75,22 +77,33 @@ func InitBrowserCam() (MediaStream, error) {
 	getUserMediaPromise.Call("onSuccess", js.FuncOf(goRTCStreamCallback))
 	// getUserMediaPromise.Call("onError", js.FuncOf(/* TODO: implement */ goRTCStreamErrorCallback))
 
-	var rtcConfig = rtc.Configuration{
-		ICEServers: []rtc.ICEServer{
-			{
-				URLs: []string{"stun:stun.l.google.com:19302"},
-			},
-		},
-	}
-	var api = rtc.NewAPI()
-	peerconn, err := api.NewPeerConnection(rtcConfig)
-	if err != nil {
-		return nil, err
-	}
+
 }
 
 // initGoRTCSession signiture matches that needed for js.FuncOf callback.
 func goRTCStreamCallback(this js.Value, args []js.Value) interface{} {
 	var offer = rtc.SessionDescription{}
-
+	vtracks := this.Call("getVideoTracks")
+	mediaEngine := rtc.MediaEngine{}
+	// vidcodec := mediaEngine.RegiserCodecByKind(rtc.RTPCodecTypeVideo)
+	if err := mediaEngine.PopulateFromSDP(offer); err == nil {
+		videoCodecs := mediaEngine.GetCodecsByKind(rtc.RTPCodecTypeVideo)
+		api := rtc.NewApi(rtc.WithMediaEngine(mediaEngine))
+		var rtcConfig = rtc.Configuration{
+			ICEServers: []rtc.ICEServer{
+				{
+					URLs: []string{"stun:stun.l.google.com:19302"},
+				},
+			},
+		}
+		peerconn, err := api.NewPeerConnection(rtcConfig)
+		if err != nil {
+			println(err.Error())
+		}
+		err = peerconn.SetRemoteDescription(offer)
+		if err != nil {
+			println(err.Error())
+		}
+		// track to send to local browser
+		btrack, err := peerconn.NewTrack()
 }
