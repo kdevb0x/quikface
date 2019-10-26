@@ -6,10 +6,20 @@ package quikface
 
 import (
 	"html/template"
+	"crypto/cipher"
+	"crypto/rand"
+	"io"
+	"io/ioutil"
 	"net/http"
 
+	chacha "golang.org/x/crypto/chacha20poly1305"
+
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 )
+
+// DefaultSessionRouter is the default
+var DefaultSessionRouter = NewSessionRouter()
 
 type SessionRouter struct {
 	Active *RoomList // globaldir
@@ -70,15 +80,36 @@ func JoinRoomHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateRoomHandler(w http.ResponseWriter, r *http.Request) {
-	var authchan = make(chan authdata)
-	// send client to oauth
-	authReqHandler(w, r, authchan)
-	authd := <-authchan
+	var authd authdata
+	store := sessions.GetRegistry(r)
+	// create session-cookie using remote addr as the name.
+	session, err := store.Get(r, r.RemoteAddr)
+	if err != nil {
+		throwError(w, err)
+	}
+		if err == http.ErrNoCookie {
+			var authchan = make(chan authdata)
+			// send client to oauth
+			authReqHandler(w, r, authchan)
+			authd = <-authchan
+			b64str, err := authd.authobj.SignedBase64(serverSignitureKey)
+			var keys [][]byte
+			var nonce = make([]byte, chacha.KeySize)
+			_, err := io.ReadFull(rand.Reader, nonce)
+			if err != nil {
+				throwError(w, err)
+			}
+			chacha.NewX(nonce)
+			// keys[0] is used for authentication, keys[1:] are used for encryption
+			sessions.NewCookieStore(keys...)
+			sessions.NewCookie("auth", b64str)
+		}
 
-}
-
-func MustAuth(handler http.Handler) http.Handler {
-	return &authHandler{next: handler}
+	}
+	if err := r.ParseForm(); err != nil {
+		throwError(w, ErrHTTPRequestParseError)
+	}
+	DefaultSessionRouter.Active.NewRoom()
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {

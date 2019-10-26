@@ -16,6 +16,7 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -25,6 +26,9 @@ import (
 	gws "github.com/gorilla/websocket"
 	"golang.org/x/net/websocket"
 )
+
+// Allows compressing offer/answer to bypass terminal input limits.
+const compress = false
 
 type signalFunc func(ws *websocket.Conn, client *Client, msg Message) error
 
@@ -100,6 +104,36 @@ func (sm wsServerMsg) String() string {
 	return sm.Msg
 }
 
+func (sig *Signal) Cmd() string {
+	if len(sig.UserId) > 0 {
+		return sig.UserId
+	}
+	return ""
+}
+
+func (sig *Signal) Send(w io.Writer, msg string) error {
+	if msg != "" {
+		jmsg, err := json.Marshal(msg)
+		if err != nil {
+			return err
+		}
+		sig.Data = append(sig.Data, jmsg...)
+		if err := json.NewEncoder(w).Encode(sig.Data); err != nil {
+			return err
+		}
+		return nil
+	}
+	return errors.New(`error: msg == ""; Unable to send blank message`)
+}
+
+func (sig *Signal) String() string {
+	var b bytes.Buffer
+	if err := json.Unmarshal(sig.Data, &b); err != nil {
+		return ""
+	}
+	return b.String()
+}
+
 func send(w io.Writer, data interface{}) error {
 	e := json.NewEncoder(w)
 	if err := e.Encode(data); err != nil {
@@ -107,9 +141,6 @@ func send(w io.Writer, data interface{}) error {
 	}
 	return nil
 }
-
-// Allows compressing offer/answer to bypass terminal input limits.
-const compress = false
 
 // MustReadStdin blocks until input is received from stdin, and panics on error.
 func MustReadStdin() string {
@@ -119,23 +150,23 @@ func MustReadStdin() string {
 	for {
 		var err error
 		in, err = r.ReadString('\n')
-		if err != io.EOF {
-			if err != nil {
-				panic(err)
-			}
-		}
-		in = strings.TrimSpace(in)
-		if len(in) > 0 {
+		if err == io.EOF {
 			break
 		}
+		if err != nil && err != io.EOF {
+			return err.Error()
+		}
+		if len(in) == 0 {
+			continue
+		}
 	}
-
+	in = strings.TrimSpace(in)
 	return in
 }
 
 // Encode encodes the input in base64
 // It can optionally zip the input before encoding
-func encode(obj interface{}) string {
+func encode(obj interface{}, compress bool) string {
 	b, err := json.Marshal(obj)
 	if err != nil {
 		return ""
@@ -144,7 +175,7 @@ func encode(obj interface{}) string {
 	if compress {
 		b, err = zip(b)
 		if err != nil {
-			return ""
+			return err.Error()
 		}
 	}
 
@@ -153,13 +184,13 @@ func encode(obj interface{}) string {
 
 // Decode decodes the input from base64
 // It can optionally unzip the input after decoding
-func decode(in string, obj interface{}) error {
+func decode(in string, obj interface{}, decompress bool) error {
 	b, err := base64.StdEncoding.DecodeString(in)
 	if err != nil {
 		return err
 	}
 
-	if compress {
+	if decompress {
 		b, err = unzip(b)
 		if err != nil {
 			return err
@@ -233,4 +264,5 @@ func WSHandler(w http.ResponseWriter, r *http.Request) {
 
 		}
 	}
+
 }
