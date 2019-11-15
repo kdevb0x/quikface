@@ -5,17 +5,18 @@
 package quikface
 
 import (
-	"html/template"
-	"crypto/cipher"
+	"context"
 	"crypto/rand"
+	"html/template"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	chacha "golang.org/x/crypto/chacha20poly1305"
+	"golang.org/x/crypto/nacl/sign"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	"github.com/gorilla/securecookie"
 )
 
 // DefaultSessionRouter is the default
@@ -85,27 +86,25 @@ func CreateRoomHandler(w http.ResponseWriter, r *http.Request) {
 	// create session-cookie using remote addr as the name.
 	session, err := store.Get(r, r.RemoteAddr)
 	if err != nil {
-		throwError(w, err)
-	}
-		if err == http.ErrNoCookie {
-			var authchan = make(chan authdata)
-			// send client to oauth
-			authReqHandler(w, r, authchan)
-			authd = <-authchan
-			b64str, err := authd.authobj.SignedBase64(serverSignitureKey)
-			var keys [][]byte
-			var nonce = make([]byte, chacha.KeySize)
-			_, err := io.ReadFull(rand.Reader, nonce)
-			if err != nil {
-				throwError(w, err)
-			}
-			chacha.NewX(nonce)
-			// keys[0] is used for authentication, keys[1:] are used for encryption
-			sessions.NewCookieStore(keys...)
-			sessions.NewCookie("auth", b64str)
-		}
 
+		if err == http.ErrNoCookie {
+		var authchan = make(chan authdata)
+		// send client to oauth
+		authReqHandler(w, r, authchan)
+		authd = <-authchan
+
+		publicKey, privateKey, err := sign.GenerateKey(rand.Reader)
+		if err != nil {
+			throwError(err)
+		}
+		b64str, err := authd.authobj.SignedBase64(string(*privateKey))
+
+		// keys[0] is used for authentication, keys[1:] are used for encryption
+		sessionKey := securecookie.GenerateRandomKey(32)
+		store := sessions.NewCookieStore(sessionKey)
+		sessions.NewCookie("auth", b64str)
 	}
+
 	if err := r.ParseForm(); err != nil {
 		throwError(w, ErrHTTPRequestParseError)
 	}
@@ -114,4 +113,30 @@ func CreateRoomHandler(w http.ResponseWriter, r *http.Request) {
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	go authReqHandler(w, r)
+}
+
+// WrapHandlerWithContext adds the optional key value pairs in ctxVals to
+// r.Context via contex.WithValue then calls the handler with w and r in another
+// goroutine.
+func WrapHandlerWithContext(w http.ResponseWriter, r *http.Request, handler func(w http.ResponseWriter, r *http.Request), ctxVals ...map[interface{}]interface{}) {
+
+	var curCtx context.Context
+	if len(ctxVals) > 0 {
+		// pull maps from implicit variatric slice
+		for _, m := range ctxVals {
+			// now range over the map
+			curCtx = r.Context()
+			for k, v := range m {
+				tmpctx := context.WithValue(curCtx, k, v)
+				curCtx = tmpctx
+			}
+		}
+		req, err := http.NewRequestWithContext(curCtx, r.Method, r.URL.String(), r.Body)
+		if err != nil {
+			throwError(err, w)
+		}
+		r = req
+
+	}
+	go handler(w, r)
 }

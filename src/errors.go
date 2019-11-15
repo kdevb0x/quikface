@@ -5,7 +5,9 @@
 package quikface
 
 import (
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 )
 
@@ -28,12 +30,20 @@ func (et ErrorType) Error() string {
 // encountered within handlers can send them here.
 var errorLog = make(errchan, 1000)
 
-func throwError(out io.Writer, err error) {
-	switch rw := out.(type) {
-	case http.ResponseWriter:
-		http.Error(rw, err.Error(), http.StatusBadRequest)
-	default:
-		out.Write([]byte(err.Error()))
+// throwError writes err to log.Println, as well as all of the optional
+// io.Writer parameters passed in.
+func throwError(err error, out ...io.Writer) {
+	log.Println(fmt.Errorf("ThrowError: %w\n", err))
+	if len(out) > 0 {
+		for _, w := range out {
 
+			switch rw := w.(type) {
+			case http.ResponseWriter:
+				http.Error(rw, err.Error(), http.StatusInternalServerError)
+			default:
+				w.Write([]byte(fmt.Errorf("ThrowError: %w\n", err).Error()))
+
+			}
+		}
 	}
 }

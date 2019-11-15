@@ -17,6 +17,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -37,10 +38,12 @@ type Signal struct {
 	Data   []byte // webrtc SDP payload
 }
 
+/*
 type Signaller interface {
 	Broadcast(s Signal) (AnswerStream, error)
 	Listen(uid string) (OfferStream, error)
 }
+
 
 type AnswerStream interface {
 	Next() (Signal, error)
@@ -56,6 +59,7 @@ type OfferStream interface {
 	Next() (Offer, error)
 	Close() error
 }
+*/
 
 type Message interface {
 	Cmd() string // returns the signal command as string
@@ -252,10 +256,13 @@ func WSHandler(w http.ResponseWriter, r *http.Request) {
 		mt, msg, err := c.ReadMessage()
 		if err != nil {
 			// TODO: handle error
+
+			// errorLog does log.Print* for all errors sent
 			errorLog <- err
 		}
 		wsData := wsClientMsg{}
 		if err := json.Unmarshal(msg, &wsData); err != nil {
+			err = fmt.Errorf("failed to marchal ws message from signaler: %w\n", err)
 			errorLog <- err
 		}
 		sdp := wsData.SDP
