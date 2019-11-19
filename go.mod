@@ -12,8 +12,10 @@ require (
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.0
 	github.com/gorilla/websocket v1.4.0
+	github.com/pion/rtcp v1.2.1
 	github.com/pion/rtp v1.1.4
-	github.com/pion/sdp/v2 v2.3.1 // indirect
+	github.com/pion/sctp v1.7.3 // indirect
+	github.com/pion/sdp/v2 v2.3.1
 	github.com/pion/webrtc/v2 v2.1.7
 	github.com/stretchr/codecs v0.0.0-20170403063245-04a5b1e1910d // indirect
 	github.com/stretchr/gomniauth v0.0.0-20170717123514-4b6c822be2eb

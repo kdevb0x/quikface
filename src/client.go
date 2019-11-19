@@ -9,6 +9,9 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/pion/webrtc/v2"
+
+	"github.com/kdevb0x/quikface/internal/signal"
 )
 
 type Client struct {
@@ -59,9 +62,96 @@ func (c *Client) JoinRoom(name string, masterDirectory *RoomList) (*Room, error)
 		if err != nil {
 			return nil, fmt.Errorf("error finding hash of %s, %w\n", name, err)
 		}
-		room.Clients[c.ID] = c
+		room.ClientList[c.ID] = c
+		if len(room.OfferQueue) > 0 {
+			go func(r *Room) {
+				c.initRTCSession(room)
+			}(room)
+		}
 		return room, nil
 
 	}
 	return nil, fmt.Errorf("error: room %s doesn't exist", name)
+}
+
+func (c *Client) initRTCSession(room *Room) error {
+	
+		// Prepare the configuration
+		config := webrtc.Configuration{
+			ICEServers: []webrtc.ICEServer{
+				{
+					URLs: []string{"stun:stun.l.google.com:19302"},
+				},
+			},
+			SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
+		}
+
+		// Create a MediaEngine object to configure the supported codec
+		m := webrtc.MediaEngine{}
+
+		m.RegisterCodec(webrtc.NewRTPVP8Codec(webrtc.DefaultPayloadTypeVP8, 90000))
+		m.RegisterCodec(webrtc.NewRTPOpusCodec(webrtc.DefaultPayloadTypeOpus, 48000))
+
+		// Create the API object with the MediaEngine
+		api := webrtc.NewAPI(webrtc.WithMediaEngine(m))
+
+		// Create a new RTCPeerConnection
+		peerConnection, err := api.NewPeerConnection(config)
+		if err != nil {
+			return err
+		}
+
+		if _, err = peerConnection.AddTransceiver(webrtc.RTPCodecTypeAudio); err != nil {
+			return err
+		} else if _, err = peerConnection.AddTransceiver(webrtc.RTPCodecTypeVideo); err != nil {
+			return err
+		}
+
+		// Set a handler for when a new remote track starts, this handler copies inbound RTP packets,
+		// replaces the SSRC and sends them back
+		peerConnection.OnTrack(func(track *webrtc.Track, receiver *webrtc.RTPReceiver) {
+
+			fmt.Printf("Track has started, of type %d: %s \n", track.PayloadType(), track.Codec().Name)
+			for {
+				// Read RTP packets being sent to Pion
+				rtp, readErr := track.ReadRTP()
+				if readErr != nil {
+					if readErr == io.EOF {
+						return
+					}
+					throwError(err)
+				}
+				switch track.Kind() {
+				case webrtc.RTPCodecTypeAudio:
+					saver.PushOpus(rtp)
+				case webrtc.RTPCodecTypeVideo:
+					saver.PushVP8(rtp)
+				}
+			}
+		})
+		// Set the handler for ICE connection state
+		// This will notify you when the peer has connected/disconnected
+		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
+			fmt.Printf("Connection State has changed %s \n", connectionState.String())
+		})
+
+	if len(room.OfferQueue) == 0 {
+		// we are the first to initiate session
+
+		// create out offer
+		offer, err := peerConnection.CreateOffer(nil)
+		if err != nil {
+			return err
+		}
+
+		// set the local description 
+		err = peerConnection.SetLocalDescription(offer)
+		if err != nil {
+			return err 
+		}
+
+		
+		
+	}
+	remoteOffer := <-room.OfferQueue
 }

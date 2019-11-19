@@ -8,7 +8,8 @@
 // and
 // https://github.com/dennwc/dom/blob/master/net/webrtc/signalling.go
 
-package quikface
+// signal is an internal pkg of quikface that implements simple signal server.
+package signal
 
 import (
 	"bufio"
@@ -26,6 +27,8 @@ import (
 
 	gws "github.com/gorilla/websocket"
 	"golang.org/x/net/websocket"
+
+	"github.com/kdevb0x/quikface"
 )
 
 // Allows compressing offer/answer to bypass terminal input limits.
@@ -68,7 +71,7 @@ type Message interface {
 }
 
 // websocket message from the client
-type wsClientMsg struct {
+type WsClientMessage struct {
 	Command  string `json:"cmd"`
 	ClientID string `json:"client_id"`
 	Msg      string `json:"msg"`
@@ -77,16 +80,16 @@ type wsClientMsg struct {
 	Name     string `json:"name,omitempty"`
 }
 
-func (cm wsClientMsg) Cmd() string {
+func (cm WsClientMessage) Cmd() string {
 	return cm.Command
 }
 
-func (cm wsClientMsg) Send(w io.Writer, msg string) error {
+func (cm WsClientMessage) Send(w io.Writer, msg string) error {
 	cm.Msg = msg
 	return send(w, cm)
 }
 
-func (cm wsClientMsg) String() string {
+func (cm WsClientMessage) String() string {
 	return cm.Msg
 }
 
@@ -138,7 +141,7 @@ func (sig *Signal) String() string {
 	return b.String()
 }
 
-func send(w io.Writer, data interface{}) error {
+func Send(w io.Writer, data interface{}) error {
 	e := json.NewEncoder(w)
 	if err := e.Encode(data); err != nil {
 		return err
@@ -170,14 +173,14 @@ func MustReadStdin() string {
 
 // Encode encodes the input in base64
 // It can optionally zip the input before encoding
-func encode(obj interface{}, compress bool) string {
+func Encode(obj interface{}, compress bool) string {
 	b, err := json.Marshal(obj)
 	if err != nil {
 		return ""
 	}
 
 	if compress {
-		b, err = zip(b)
+		b, err = Zip(b)
 		if err != nil {
 			return err.Error()
 		}
@@ -188,14 +191,14 @@ func encode(obj interface{}, compress bool) string {
 
 // Decode decodes the input from base64
 // It can optionally unzip the input after decoding
-func decode(in string, obj interface{}, decompress bool) error {
+func Decode(in string, obj interface{}, decompress bool) error {
 	b, err := base64.StdEncoding.DecodeString(in)
 	if err != nil {
 		return err
 	}
 
 	if decompress {
-		b, err = unzip(b)
+		b, err = Unzip(b)
 		if err != nil {
 			return err
 		}
@@ -208,7 +211,7 @@ func decode(in string, obj interface{}, decompress bool) error {
 	return nil
 }
 
-func zip(in []byte) ([]byte, error) {
+func Zip(in []byte) ([]byte, error) {
 	var b bytes.Buffer
 	gz := gzip.NewWriter(&b)
 	_, err := gz.Write(in)
@@ -226,7 +229,7 @@ func zip(in []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func unzip(in []byte) ([]byte, error) {
+func Unzip(in []byte) ([]byte, error) {
 	var b bytes.Buffer
 	_, err := b.Write(in)
 	if err != nil {
@@ -250,7 +253,7 @@ func WSHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unable to upgrade ws conn", http.StatusInternalServerError)
 	}
 	defer func() {
-		errorLog <- c.Close()
+		quikface.ErrorLog <- c.Close()
 	}()
 	for {
 		mt, msg, err := c.ReadMessage()
@@ -260,9 +263,9 @@ func WSHandler(w http.ResponseWriter, r *http.Request) {
 			// errorLog does log.Print* for all errors sent
 			errorLog <- err
 		}
-		wsData := wsClientMsg{}
+		wsData := WsClientMessage{}
 		if err := json.Unmarshal(msg, &wsData); err != nil {
-			err = fmt.Errorf("failed to marchal ws message from signaler: %w\n", err)
+			err = fmt.Errorf("failed to marshal ws message from signaler: %w\n", err)
 			errorLog <- err
 		}
 		sdp := wsData.SDP

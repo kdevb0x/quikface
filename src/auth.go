@@ -5,10 +5,13 @@
 package quikface
 
 import (
+	"crypto/rand"
 	"html/template"
 	"net/http"
 	"path/filepath"
 	"sync"
+
+	"golang.org/x/crypto/nacl/sign"
 
 	"github.com/gorilla/mux"
 	"github.com/stretchr/gomniauth"
@@ -64,6 +67,11 @@ func MustAuth(handler http.Handler) http.Handler {
 
 func initOmniauth() {
 	// gomniauth.SetSecurityKey(/* TODO: add base64 encoded crypto key */)
+	publicKey, privateKey, err := sign.GenerateKey(rand.Reader)
+	if err != nil {
+
+	}
+	gomniauth.SetSecurityKey(string(privateKey[:]))
 	gomniauth.WithProviders(
 		facebook.New("key", "secret",
 			"http://localhost:8080/auth/callback/facebook"),

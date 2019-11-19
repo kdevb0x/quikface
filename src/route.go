@@ -8,15 +8,13 @@ import (
 	"context"
 	"crypto/rand"
 	"html/template"
-	"io"
 	"net/http"
 
-	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/nacl/sign"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
 	"github.com/gorilla/securecookie"
+	"github.com/gorilla/sessions"
 )
 
 // DefaultSessionRouter is the default
@@ -82,31 +80,39 @@ func JoinRoomHandler(w http.ResponseWriter, r *http.Request) {
 
 func CreateRoomHandler(w http.ResponseWriter, r *http.Request) {
 	var authd authdata
-	store := sessions.GetRegistry(r)
+	registry := sessions.GetRegistry(r)
 	// create session-cookie using remote addr as the name.
-	session, err := store.Get(r, r.RemoteAddr)
+
+	session, err := registry.Get(nil, r.RemoteAddr)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusExpectationFailed)
+	}
+	// keys[0] is used for authentication, keys[1:] are used for encryption
+	sessionKey := securecookie.GenerateRandomKey(32)
+	encKey := securecookie.GenerateRandomKey(32)
+	store := sessions.NewCookieStore(sessionKey, encKey)
+	sessions.NewCookie("auth", b64str)
+
 	if err != nil {
 
 		if err == http.ErrNoCookie {
-		var authchan = make(chan authdata)
-		// send client to oauth
-		authReqHandler(w, r, authchan)
-		authd = <-authchan
+			var authchan = make(chan authdata)
+			// send client to oauth
+			authReqHandler(w, r, authchan)
+			authd = <-authchan
 
-		publicKey, privateKey, err := sign.GenerateKey(rand.Reader)
-		if err != nil {
-			throwError(err)
+			publicKey, privateKey, err := sign.GenerateKey(rand.Reader)
+			if err != nil {
+				throwError(err)
+			}
+			b64str, err := authd.authobj.SignedBase64(string(privateKey[:]))
+
 		}
-		b64str, err := authd.authobj.SignedBase64(string(*privateKey))
-
-		// keys[0] is used for authentication, keys[1:] are used for encryption
-		sessionKey := securecookie.GenerateRandomKey(32)
-		store := sessions.NewCookieStore(sessionKey)
-		sessions.NewCookie("auth", b64str)
 	}
 
 	if err := r.ParseForm(); err != nil {
-		throwError(w, ErrHTTPRequestParseError)
+		throwError(ErrHTTPRequestParseError, w)
 	}
 	DefaultSessionRouter.Active.NewRoom()
 }

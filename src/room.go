@@ -14,6 +14,12 @@ import (
 	"time"
 
 	"golang.org/x/crypto/sha3"
+
+	"github.com/pion/webrtc/v2"
+	"github.com/pion/rtp"
+	"github.com/pion/rtp/codecs"
+	"github.com/pion/rtcp"
+	"github.com/pion/sdp/v2"
 )
 
 // maxRoomCap is the maximum number of clients allowed to a room.
@@ -46,14 +52,18 @@ type Room struct {
 	// id is a hash to uniquely identify the Room.
 	id string
 
-	// Clients is a map of the Clients present, keyed by their id's.
-	Clients map[uint32]*Client
+	// ClientList is a map of the Clients present, keyed by their id's.
+	ClientList map[uint32]*Client
 
-	// Client registration time limit; Clients must register before timeout.
+	// Client registration time limit; ClientList must register before timeout.
 	RegistrationTimeout time.Duration
 
 	// url.URL.String() of the room
 	RoomURL string
+
+	// OfferQueue is a shared queue for client session descriptions
+	// This queue takes the place of a signaling server for client msgs.
+	OfferQueue chan sdp.SessionDescription // unbuffered
 }
 
 // GetRoom searches by hash in existing rooms, returning a pointer if it exists,
@@ -86,7 +96,7 @@ func (rl *RoomList) NewRoom(name string, url string, registrationTimeout ...time
 	if err != nil {
 		return nil, fmt.Errorf("can't create room named %s, [internal error]: %w\n", name, err)
 	}
-	r.Clients = make(map[uint32]*Client)
+	r.ClientList = make(map[uint32]*Client)
 	r.id = rid
 	rl.Rooms[r.Name] = r.id
 	rl.roomhashes[r.id] = r
@@ -111,13 +121,26 @@ func (rl *RoomList) HashRoom(name string) (string, error) {
 // Client returns the client if present, otherwise a new Client is created
 // inside the Room r, (if maxRoomCap iis not met) then returned.
 func (r *Room) Client(clientID uint32) (*Client, error) {
-	if c, exists := r.Clients[clientID]; exists {
+	if c, exists := r.ClientList[clientID]; exists {
 		return c, nil
 	}
-	if len(r.Clients) >= maxRoomCap {
+	if len(r.ClientList) >= maxRoomCap {
 		return nil, errors.New("Room at max capacity, cannot add client")
 
 	}
-	r.Clients[clientID] = NewClient()
-	return r.Clients[clientID], nil
+	r.ClientList[clientID] = NewClient()
+	return r.ClientList[clientID], nil
+}
+
+func (r *Room) InitMediaSession(c1, c2 *Client) error {
+	if _, found := r.ClientList[c1.ID]; !found {
+		return fmt.Errorf("client id not in found in %s's client list. ClientList must be in the rooms ClientList to participate", r.Name)
+	}
+	if _, found := r.ClientList[c2.ID]; !found {
+		return fmt.Errorf("client id not in found in %s client list. ClientList must be in the rooms ClientList to participate", r.Name)
+	}
+	err := c1.initRTCSession(r)
+	if err != nil {
+		return err
+	}
 }
