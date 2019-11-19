@@ -5,13 +5,16 @@
 package quikface
 
 import (
+	"crypto"
+	"crypto/ed25519"
+	"crypto/rand"
 	"fmt"
 	"io"
 
 	"github.com/google/uuid"
 	"github.com/pion/webrtc/v2"
 
-	"github.com/kdevb0x/quikface/internal/signal"
+	"github.com/kdevb0x/quikface/src/internal/signal"
 )
 
 type Client struct {
@@ -23,8 +26,14 @@ type Client struct {
 	// for signal mesages; known as "rwc" in collider
 	// TODO: Maybe change this to io.ReadWriteCloser and have signalFunc
 	// implement the interface?
-	Signal   io.ReadWriteCloser // signalFunc
-	MsgQueue MsgQueue
+	Signal io.ReadWriteCloser // signalFunc
+	// MsgQueue MsgQueue
+
+	// PrivateKey is a ed25519 PrivateKey for signing and authentication.
+	PrivateKey crypto.PrivateKey
+
+	// PublicKey is a ed25519 PublicKey for signing and authentication.
+	PublicKey crypto.PublicKey
 }
 
 type MsgQueue struct {
@@ -32,17 +41,30 @@ type MsgQueue struct {
 	Outbound chan Message
 }
 
+// NewClient represents the client side of connection during api interactions.
 func NewClient(displayname ...string) *Client {
-	var msgq = MsgQueue{make(chan Message, 10), make(chan Message, 10)}
+	var c *Client
+	c.ID = uuid.New().ID()
+
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		// TODO: make this a non-lethal error so it only terminates the
+		// connection and not the whole server.
+		panic(err)
+	}
+	c.PublicKey = pub
+	c.PrivateKey = priv
+
+	// var msgq = MsgQueue{make(chan Message, 10), make(chan Message, 10)}
 	if len(displayname) > 0 {
 		// cant break if stmnts, so had to flip this test
 		if displayname[0] != "" {
-			return &Client{ID: uuid.New().ID(), DisplayName: displayname[0], MsgQueue: msgq}
-
+			c.DisplayName = displayname[0]
 		}
 		// here displayname[0] == ""
 	}
-	return &Client{ID: uuid.New().ID(), DisplayName: randomChatName(), MsgQueue: msgq}
+	c.DisplayName = randomChatName()
+	return c
 
 }
 
@@ -74,66 +96,70 @@ func (c *Client) JoinRoom(name string, masterDirectory *RoomList) (*Room, error)
 	return nil, fmt.Errorf("error: room %s doesn't exist", name)
 }
 
-func (c *Client) initRTCSession(room *Room) error {
-	
-		// Prepare the configuration
-		config := webrtc.Configuration{
-			ICEServers: []webrtc.ICEServer{
-				{
-					URLs: []string{"stun:stun.l.google.com:19302"},
-				},
+func (c *Client) initRTCSession(room *Room, peer ...*Client) error {
+
+	// Prepare the configuration
+	config := webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{"stun:stun.l.google.com:19302"},
 			},
-			SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
-		}
+		},
+		SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
+	}
 
-		// Create a MediaEngine object to configure the supported codec
-		m := webrtc.MediaEngine{}
+	// Create a MediaEngine object to configure the supported codec
+	m := webrtc.MediaEngine{}
 
-		m.RegisterCodec(webrtc.NewRTPVP8Codec(webrtc.DefaultPayloadTypeVP8, 90000))
-		m.RegisterCodec(webrtc.NewRTPOpusCodec(webrtc.DefaultPayloadTypeOpus, 48000))
+	m.RegisterCodec(webrtc.NewRTPVP8Codec(webrtc.DefaultPayloadTypeVP8, 90000))
+	m.RegisterCodec(webrtc.NewRTPOpusCodec(webrtc.DefaultPayloadTypeOpus, 48000))
 
-		// Create the API object with the MediaEngine
-		api := webrtc.NewAPI(webrtc.WithMediaEngine(m))
+	// Create the API object with the MediaEngine
+	api := webrtc.NewAPI(webrtc.WithMediaEngine(m))
 
-		// Create a new RTCPeerConnection
-		peerConnection, err := api.NewPeerConnection(config)
-		if err != nil {
-			return err
-		}
+	// Create a new RTCPeerConnection
+	peerConnection, err := api.NewPeerConnection(config)
+	if err != nil {
+		return err
+	}
 
-		if _, err = peerConnection.AddTransceiver(webrtc.RTPCodecTypeAudio); err != nil {
-			return err
-		} else if _, err = peerConnection.AddTransceiver(webrtc.RTPCodecTypeVideo); err != nil {
-			return err
-		}
+	_, err = peerConnection.AddTransceiver(webrtc.RTPCodecTypeAudio)
+	if err != nil {
+		return err
+	}
 
-		// Set a handler for when a new remote track starts, this handler copies inbound RTP packets,
-		// replaces the SSRC and sends them back
-		peerConnection.OnTrack(func(track *webrtc.Track, receiver *webrtc.RTPReceiver) {
+	_, err = peerConnection.AddTransceiver(webrtc.RTPCodecTypeVideo)
+	if err != nil {
+		return err
+	}
+	webrtc.GenerateCertificate()
+	// Set a handler for when a new remote track starts, this handler copies inbound RTP packets,
+	// replaces the SSRC and sends them back
+	peerConnection.OnTrack(func(track *webrtc.Track, receiver *webrtc.RTPReceiver) {
 
-			fmt.Printf("Track has started, of type %d: %s \n", track.PayloadType(), track.Codec().Name)
-			for {
-				// Read RTP packets being sent to Pion
-				rtp, readErr := track.ReadRTP()
-				if readErr != nil {
-					if readErr == io.EOF {
-						return
-					}
-					throwError(err)
+		fmt.Printf("Track has started, of type %d: %s \n", track.PayloadType(), track.Codec().Name)
+		for {
+			// Read RTP packets being sent to Pion
+			rtp, readErr := track.ReadRTP()
+			if readErr != nil {
+				if readErr == io.EOF {
+					return
 				}
-				switch track.Kind() {
-				case webrtc.RTPCodecTypeAudio:
-					saver.PushOpus(rtp)
-				case webrtc.RTPCodecTypeVideo:
-					saver.PushVP8(rtp)
-				}
+				throwError(err)
 			}
-		})
-		// Set the handler for ICE connection state
-		// This will notify you when the peer has connected/disconnected
-		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-			fmt.Printf("Connection State has changed %s \n", connectionState.String())
-		})
+			switch track.Kind() {
+			case webrtc.RTPCodecTypeAudio:
+				saver.PushOpus(rtp)
+			case webrtc.RTPCodecTypeVideo:
+				saver.PushVP8(rtp)
+			}
+		}
+	})
+	// Set the handler for ICE connection state
+	// This will notify you when the peer has connected/disconnected
+	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
+		fmt.Printf("Connection State has changed %s \n", connectionState.String())
+	})
 
 	if len(room.OfferQueue) == 0 {
 		// we are the first to initiate session
@@ -144,14 +170,13 @@ func (c *Client) initRTCSession(room *Room) error {
 			return err
 		}
 
-		// set the local description 
+		// set the local description
 		err = peerConnection.SetLocalDescription(offer)
 		if err != nil {
-			return err 
+			return err
 		}
+		signal.Deco
 
-		
-		
 	}
 	remoteOffer := <-room.OfferQueue
 }
