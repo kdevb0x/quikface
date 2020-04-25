@@ -51,6 +51,7 @@ func (s *SessionRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	client, err :=
 }
 
+// NewSessionRouter creates a new SessionRouter.
 func NewSessionRouter() *SessionRouter {
 	s := &SessionRouter{
 		Active:       NewRoomList(),
