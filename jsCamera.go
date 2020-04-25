@@ -11,7 +11,6 @@ import (
 	"syscall/js"
 
 	"github.com/dennwc/dom"
-	// using both webrtc because each pkg has diff features.
 	"github.com/dennwc/dom/net/webrtc"
 
 	rtc "github.com/pion/webrtc/v2"
@@ -107,6 +106,4 @@ func goRTCStreamCallback(this js.Value, args []js.Value) interface{} {
 		}
 		// track to send to local browser
 		btrack, err := peerconn.NewTrack()
-		peerconn.AddTransceiver(rtc.RTPCodecTypeVideo)
-		peerconn.OnTrack
 }

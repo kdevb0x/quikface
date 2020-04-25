@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.0
 	github.com/gorilla/websocket v1.4.0
-	github.com/pion/rtcp v1.2.1
+	github.com/pion/rtcp v1.2.1 // indirect
 	github.com/pion/rtp v1.1.4
 	github.com/pion/sctp v1.7.3 // indirect
 	github.com/pion/sdp/v2 v2.3.1
@@ -24,7 +24,10 @@ require (
 	github.com/stretchr/stew v0.0.0-20130812190256-80ef0842b48b // indirect
 	github.com/stretchr/tracer v0.0.0-20140124184152-66d3696bba97 // indirect
 	github.com/ugorji/go v1.1.7 // indirect
-	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
-	golang.org/x/net v0.0.0-20191007182048-72f939374954
+	golang.org/x/crypto v0.0.0-20191119213627-4f8c1d86b1ba
+	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
+	golang.org/x/sys v0.0.0-20191120155948-bd437916bb0e // indirect
+	golang.org/x/text v0.3.2 // indirect
+	golang.org/x/tools/gopls v0.4.0 // indirect
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22 // indirect
 )
