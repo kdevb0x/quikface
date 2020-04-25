@@ -28,13 +28,13 @@ import (
 	gws "github.com/gorilla/websocket"
 	"golang.org/x/net/websocket"
 
-	"github.com/kdevb0x/quikface"
+	qf "github.com/kdevb0x/quikface"
 )
 
 // Allows compressing offer/answer to bypass terminal input limits.
 const compress = false
 
-type signalFunc func(ws *websocket.Conn, client *Client, msg Message) error
+type signalFunc func(ws *websocket.Conn, client *qf.Client, msg Message) error
 
 type Signal struct {
 	UserId string // optional user id of client
