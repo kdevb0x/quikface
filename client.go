@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pion/webrtc/v2"
 
-	"github.com/kdevb0x/quikface/src/internal/signal"
+	"github.com/kdevb0x/quikface/internal/signal"
 )
 
 type Client struct {
